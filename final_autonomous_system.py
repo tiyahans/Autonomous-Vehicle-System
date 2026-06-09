@@ -1,41 +1,24 @@
 from ultralytics import YOLO
 from deep_sort_realtime.deepsort_tracker import DeepSort
-
 import cv2
 import numpy as np
 
-####################################
-# LOAD YOLO MODEL
-####################################
-
+# Load YOLO model
 model = YOLO("yolov8n.pt")
 
-####################################
-# INITIALIZE TRACKER
-####################################
-
+# Initialize tracker
 tracker = DeepSort(max_age=30)
 
-####################################
-# VIDEO PATH
-####################################
-
+# Input video
 video_path = "datasets/challenge.mp4"
-
 cap = cv2.VideoCapture(video_path)
 
-####################################
-# VIDEO PROPERTIES
-####################################
-
+# Video properties
 width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 fps = int(cap.get(cv2.CAP_PROP_FPS))
 
-####################################
-# OUTPUT VIDEO
-####################################
-
+# Output video
 output_path = "outputs/final_output.mp4"
 
 fourcc = cv2.VideoWriter_fourcc(*'mp4v')
@@ -47,10 +30,6 @@ out = cv2.VideoWriter(
     (width, height)
 )
 
-####################################
-# PROCESS VIDEO
-####################################
-
 while cap.isOpened():
 
     ret, frame = cap.read()
@@ -58,10 +37,7 @@ while cap.isOpened():
     if not ret:
         break
 
-    ####################################
-    # YOLO OBJECT DETECTION
-    ####################################
-
+    # Vehicle detection
     results = model(frame)
 
     detections = []
@@ -74,10 +50,7 @@ while cap.isOpened():
             ([x1, y1, x2 - x1, y2 - y1], score, class_id)
         )
 
-    ####################################
-    # DEEPSORT TRACKING
-    ####################################
-
+    # Vehicle tracking
     tracks = tracker.update_tracks(
         detections,
         frame=frame
@@ -94,10 +67,6 @@ while cap.isOpened():
 
         x1, y1, x2, y2 = map(int, ltrb)
 
-        ####################################
-        # DRAW VEHICLE BOX
-        ####################################
-
         cv2.rectangle(
             frame,
             (x1, y1),
@@ -105,10 +74,6 @@ while cap.isOpened():
             (0, 255, 0),
             2
         )
-
-        ####################################
-        # VEHICLE ID
-        ####################################
 
         cv2.putText(
             frame,
@@ -120,19 +85,12 @@ while cap.isOpened():
             2
         )
 
-    ####################################
-    # IMPROVED LANE DETECTION
-    ####################################
-
+    # Lane detection
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
     blur = cv2.GaussianBlur(gray, (5, 5), 0)
 
     edges = cv2.Canny(blur, 50, 150)
-
-    ####################################
-    # REGION OF INTEREST
-    ####################################
 
     mask = np.zeros_like(edges)
 
@@ -148,10 +106,6 @@ while cap.isOpened():
 
     cropped_edges = cv2.bitwise_and(edges, mask)
 
-    ####################################
-    # DETECT LINES
-    ####################################
-
     lines = cv2.HoughLinesP(
         cropped_edges,
         2,
@@ -160,10 +114,6 @@ while cap.isOpened():
         minLineLength=80,
         maxLineGap=50
     )
-
-    ####################################
-    # FILTER LEFT/RIGHT LANES
-    ####################################
 
     left_lines = []
     right_lines = []
@@ -174,28 +124,21 @@ while cap.isOpened():
 
             x1, y1, x2, y2 = line[0]
 
-            # Avoid division by zero
             if x2 - x1 == 0:
                 continue
 
             slope = (y2 - y1) / (x2 - x1)
 
-            # Remove horizontal & noisy lines
+            # Remove noisy lines
             if abs(slope) < 0.5 or abs(slope) > 2:
                 continue
 
-            # LEFT LANE
             if slope < 0:
                 left_lines.append(line)
-
-            # RIGHT LANE
             else:
                 right_lines.append(line)
 
-    ####################################
-    # DRAW LEFT LANE
-    ####################################
-
+    # Draw left lane
     for line in left_lines[:2]:
 
         x1, y1, x2, y2 = line[0]
@@ -208,10 +151,7 @@ while cap.isOpened():
             6
         )
 
-    ####################################
-    # DRAW RIGHT LANE
-    ####################################
-
+    # Draw right lane
     for line in right_lines[:2]:
 
         x1, y1, x2, y2 = line[0]
@@ -224,10 +164,7 @@ while cap.isOpened():
             6
         )
 
-    ####################################
-    # COLLISION WARNING
-    ####################################
-
+    # Collision warning
     for result in results[0].boxes.data.tolist():
 
         x1, y1, x2, y2, score, class_id = result
@@ -246,30 +183,17 @@ while cap.isOpened():
                 3
             )
 
-    ####################################
-    # SHOW FRAME
-    ####################################
-
     cv2.imshow("Autonomous Vehicle System", frame)
 
-    ####################################
-    # SAVE OUTPUT
-    ####################################
-
     out.write(frame)
-
-    ####################################
-    # PRESS Q TO EXIT
-    ####################################
 
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
-####################################
-# RELEASE RESOURCES
-####################################
-
 cap.release()
+
+cv2.waitKey(1000)
+
 out.release()
 
 cv2.destroyAllWindows()
