@@ -36,9 +36,9 @@ fps = int(cap.get(cv2.CAP_PROP_FPS))
 # OUTPUT VIDEO
 ####################################
 
-output_path = "outputs/final_output.avi"
+output_path = "outputs/final_output.mp4"
 
-fourcc = cv2.VideoWriter_fourcc(*'XVID')
+fourcc = cv2.VideoWriter_fourcc(*'mp4v')
 
 out = cv2.VideoWriter(
     output_path,
